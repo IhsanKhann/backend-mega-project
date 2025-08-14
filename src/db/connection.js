@@ -1,17 +1,15 @@
-// db/index.js (or similar file)
+// db/index.js
 import mongoose from 'mongoose';
-import config from "../config/config.js";
+import config from '../config/config.js'
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(config.MONGO_URL, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    const conn = await mongoose.connect("mongodb+srv://IhsanDB:mintfever@cluster0.lj1ezwx.mongodb.net/YTube"
+);
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error(`Error: ${error.message}`);
-    process.exit(1); // Exit process with failure
+    console.error(`❌ MongoDB Connection Error: ${error.message}`);
+    process.exit(1);
   }
 };
 
