@@ -6,6 +6,7 @@ import config from "../config/config.js"
 // -------------------
 // Generate Tokens
 // -------------------
+
 const generateAccessAndRefreshTokens = async(userId) => {
 
     if(!userId) throw new Error("User id is required");
@@ -286,10 +287,127 @@ const refreshToken = async (req, res) => {
 
 // refresh tokkens -> with this approach we refresh/generate another access token (this is simpler only make a new access token) but complex is we generate both the tokens, an access token as well as a refresh tokken.
 
+// get current user
+const getUser = async(req,res) => {
+    const user = req.user;
+    res.status(200).json({
+        status: false,
+        message: "User found",
+        user,
+    })
+}
+
+// confirm your password.
+const confirmCurrentPassword = async(req,res) => {
+    try{
+        const {oldPassword,newPassword,ConfirmPassword} = req.body;
+    // we need user, and its password from the database.
+    const user = req.user;
+
+    // if(user.password !== oldPassword){
+    //     return res.status(400).json({
+    //         status: false,
+    //         message: "Invalid old password",
+    //     })
+    // }; this wont work as the password is hashed.
+    
+    const userPresent = await User.findById(user._id);
+    if(!userPresent){
+        res.status(400).json({
+            status: false,
+            message: "User not found",
+        })
+    }
+
+    const isPasswordValid = await user.comparePassword(oldPassword);
+    if(!isPasswordValid){
+        return res.status(400).json({
+            status: false,
+            message: "Invalid old password",
+        })
+    }
+
+    if(newPassword !== ConfirmPassword){
+        return res.status(400).json({
+            status: false,
+            message: "Passwords do not match",
+        })
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+        user._id,
+        {
+            $set:{
+                password: newPassword,
+            },
+        },
+        {new:true},
+    )
+
+    res.status(200).json({
+        status: true,
+        message: "Password updated successfully",
+        updatedUser,
+    })
+
+    }catch(error){
+        res.status(500).json({
+            status: false,
+            message: "Internal server error",
+            error: error.message,
+        })
+    }
+}
+
+// updateDetails:
+const updateDetails = async (req, res) => {
+  try {
+    const { username, lastName, email } = req.body;
+
+    if (!username || !lastName || !email) {
+      return res.status(400).json({
+        status: false,
+        message: "All fields are required",
+      });
+    }
+
+    const user = req.user;
+    if (!user) {
+      return res.status(400).json({
+        status: false,
+        message: "Can't find the user",
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      user._id,
+      {
+        $set: { username, email, lastName },
+      },
+      { new: true }
+    ).select("-password");
+
+    return res.status(200).json({
+      status: true,
+      message: "User details updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // exports:
 export {
     registerUser,
     loginUser,
     logOut,
     refreshToken,
+    getUser,
+    updateDetails,
+    confirmCurrentPassword,
 };

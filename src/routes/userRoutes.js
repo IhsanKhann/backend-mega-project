@@ -3,7 +3,10 @@ import {
     registerUser,
     loginUser,
     logOut,
-    refreshTokken
+    refreshToken,
+    updateDetails,
+    getUser,
+    confirmCurrentPassword,
 } from "../controllers/userController.js"
 import {upload} from "../middlewares/multerMiddleare.js"
 import VerifyToken from "../middlewares/authMiddleware.js";
@@ -25,13 +28,18 @@ router.post("/register",
 );
 router.post("/login", loginUser);
 router.post("/logout", VerifyToken, logOut);
-router.post("/refresh-token", refreshTokken); 
+router.post("/refresh-token", refreshToken); // we verify the token inside the controller.
+
+router.get("/getUser", VerifyToken, getUser);
+
+router.put("/updateDetails",VerifyToken,updateDetails);
+router.put("/confirmCurrentPassword",VerifyToken,confirmCurrentPassword);
+
 // here we dont use verify tokken or a middleware because we have directly verify and decode in the controller.
 
 // example of the route.
 // http://localhost:3000/api/users/register
 // http://localhost:3000/api/users/login
-
 
 
 export default router;
