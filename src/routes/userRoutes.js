@@ -2,7 +2,8 @@ import express from "express";
 import {
     registerUser,
     loginUser,
-    logOut
+    logOut,
+    refreshTokken
 } from "../controllers/userController.js"
 import {upload} from "../middlewares/multerMiddleare.js"
 import VerifyToken from "../middlewares/authMiddleware.js";
@@ -24,11 +25,12 @@ router.post("/register",
 );
 router.post("/login", loginUser);
 router.post("/logout", VerifyToken, logOut);
+router.post("/refresh-token", refreshTokken); 
+// here we dont use verify tokken or a middleware because we have directly verify and decode in the controller.
 
 // example of the route.
 // http://localhost:3000/api/users/register
 // http://localhost:3000/api/users/login
-
 
 
 

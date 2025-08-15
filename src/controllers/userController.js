@@ -1,5 +1,7 @@
 import { User } from "../models/user.model.js";
 import uploadFileToCloudinary from "../utilities/cloudinary.js"; // must match your export
+import jwt from "jsonwebtoken";
+import config from "../config/config.js"
 
 // -------------------
 // Generate Tokens
@@ -209,9 +211,85 @@ const logOut = async (req,res) => {
     }
 };
 
+// refresh and rotate the refresh tokken.
+const refreshToken = async (req, res) => {
+    try {
+        const incomingRefreshToken = req.cookies.refreshToken;
+
+        if (!incomingRefreshToken) {
+            return res.status(400).json({
+                status: false,
+                message: "Refresh token not found",
+            });
+        }
+
+        let decodedToken;
+        try {
+            decodedToken = jwt.verify(incomingRefreshToken, config.REFRESH_TOKEN_SECRET);
+        } catch (err) {
+            return res.status(401).json({
+                status: false,
+                message: "Invalid or expired refresh token",
+            });
+        }
+
+        const user = await User.findById(decodedToken.id);
+        if (!user) {
+            return res.status(404).json({
+                status: false,
+                message: "User not found",
+            });
+        }
+
+        // Compare stored refresh token with the incoming one
+        if (incomingRefreshToken !== user.refreshToken) {
+            return res.status(403).json({
+                status: false,
+                message: "Refresh token mismatch",
+            });
+        }
+
+        // Generate new tokens
+        const { accessToken, refreshToken: newRefreshToken } =
+            await generateAccessAndRefreshTokens(user._id);
+
+        // Send new cookies
+        res.cookie("accessToken", accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "Strict",
+            maxAge: 15 * 60 * 1000, // 15 mins
+        });
+
+        res.cookie("refreshToken", newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "Strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+
+        return res.status(200).json({
+            status: true,
+            message: "Tokens refreshed successfully",
+            accessToken,
+            refreshToken: newRefreshToken,
+        });
+
+    } catch (error) {
+        console.error("Error refreshing tokens:", error);
+        return res.status(500).json({
+            status: false,
+            message: "Internal server error",
+        });
+    }
+};
+
+// refresh tokkens -> with this approach we refresh/generate another access token (this is simpler only make a new access token) but complex is we generate both the tokens, an access token as well as a refresh tokken.
+
 // exports:
 export {
     registerUser,
     loginUser,
     logOut,
+    refreshToken,
 };
