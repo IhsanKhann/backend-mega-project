@@ -2,8 +2,31 @@ import { User } from "../models/user.model.js";
 import uploadFileToCloudinary from "../utilities/cloudinary.js"; // must match your export
 
 // -------------------
+// Generate Tokens
+// -------------------
+const generateAccessAndRefreshTokens = async(userId) => {
+
+    if(!userId) throw new Error("User id is required");
+
+    const user = await User.findById(userId);
+    if(!user) throw new Error("User not found");
+
+    const accessToken = await user.generateAccessToken();
+    const refreshToken = await user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save({validateBeforeSave: false});
+
+    // this means just save this field i-e the refresh token in mongoose and not the rest of the fields again.
+
+    // we did the instance method step because model methods are available in the instance and not the User in this case.
+    return {accessToken,refreshToken};
+};
+
+// -------------------
 // REGISTER USER
 // -------------------
+
 const registerUser = async (req, res) => {
     try {
         // 1️⃣ Get user input from request body
@@ -51,14 +74,17 @@ const registerUser = async (req, res) => {
 
         // 6️⃣ Create and save new user
         const newUser = new User({
-            name,
+            fullName: name,
             username,
             email,
             password, // 🔒 hash this before save in production
-            avatar: avatarUrl,
+            avatar: avatarUrl || "",
         });
 
         await newUser.save();
+
+        // if you want an automatic login after registration, send tokens from here
+        // const {accessToken,refreshToken} = await generateAccessAndRefreshTokens();
 
         // 7️⃣ Success response
         return res.status(201).json({
@@ -79,48 +105,113 @@ const registerUser = async (req, res) => {
 // -------------------
 // LOGIN USER
 // -------------------
-const loginUser = async (req, res) => {
-    try {
-        const { email, password } = req.body;
 
-        if (!email || !password) {
+const loginUser = async (req, res) => { 
+    
+    try{
+        const { username, email, password } = req.body;
+        if(!username || !password){
             return res.status(400).json({
-                message: "Email and password are required",
                 status: false,
-            });
+                message: "Username and password are required",
+            })
         }
+    
+        // find in the db
+        const user = await User.findOne({
+            $or:[{username},{email}]
+        });
 
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(404).json({
+        if(!user){
+            return res.status(400).json({
+                status: false,
                 message: "User not found",
-                status: false,
-            });
+            })
         }
 
-        // ⚠️ Password comparison should use bcrypt in real apps
-        if (user.password !== password) {
-            return res.status(401).json({
-                message: "Invalid credentials",
+        // compare passwords:
+        const isPasswordValid = await user.comparePassword(password);
+        if(!isPasswordValid){
+            return res.status(400).json({
                 status: false,
-            });
+                message: "Invalid password",
+            })
         }
 
-        return res.status(200).json({
-            message: "Login successful",
+        // generate tokens and send them back in cookies (http only cookies.)
+        // now we give back the user and tokens back. Tokens in form of cookies.
+        const {accessToken,refreshToken} = await generateAccessAndRefreshTokens(user._id);
+
+        // send cookies and a response
+        return res.cookie("accessToken",accessToken,{
+            httpOnly: true,
+            secure: true,
+        }).cookie("refreshToken",refreshToken,{
+            httpOnly: true,
+            secure: true,
+        }).status(200).json({
             status: true,
-            user,
-        });
-    } catch (error) {
-        console.error("Error in loginUser:", error);
-        return res.status(500).json({
-            message: "Internal server error",
+            message: "User logged in successfully",
+            user,accessToken,refreshToken
+        })
+        
+    }
+    catch(error){
+        res.status(500).json({
             status: false,
-        });
+            message: "Internal server error",
+            error: error.message,
+        })
     }
 };
 
+// -------------------
+// LOGOUT USER
+// -------------------
+
+const logOut = async (req,res) => {
+    // 1- decode the token and get the id.
+    // 2- find the user with the particular id and then update the refresh token to empty in the database backend only not in the frontend.The cookie is not cleared it is just set to undefined if we login again it will be generated again.
+    // 3- clear the cookies.
+    // 4- return the response
+    try{
+        // we get the id of the user and then we remove it.
+        const userid = req.user._id; // upon decoding.
+
+        const user = await User.findByIdAndUpdate(userid,{
+            $set:{
+                refreshToken: "" || undefined,
+            }
+        });
+
+        if(!user){
+            return res.status(400).json({
+                status: false,
+                message: "User not found",
+            })
+        }
+
+       res
+        .clearCookie("accessToken", { httpOnly: true, secure: true })
+        .clearCookie("refreshToken", { httpOnly: true, secure: true })
+        .status(200)
+        .json({
+            status: true,
+            message: "User logged out successfully",
+        })
+
+    }catch(error){
+        res.status(500).json({
+            status: false,
+            message: "Internal server error",
+            error: error.message,
+        })
+    }
+};
+
+// exports:
 export {
     registerUser,
     loginUser,
+    logOut,
 };

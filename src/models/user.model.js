@@ -1,7 +1,11 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import mongoose, {Schema} from "mongoose";
 import jwt from "jsonwebtoken"
 import bcrypt from "bcrypt"
 import config from "../config/config.js"
+
 // we also need expiry of refresh and access token.
 // along with secrets for them(long random str)
 
@@ -30,10 +34,11 @@ const userSchema = new Schema(
         },
         avatar: {
             type: String, // cloudinary url
-            required: true,
+            required: false,
         },
         coverImage: {
             type: String, // cloudinary url
+            required: false,
         },
         watchHistory: [
             {
@@ -63,7 +68,7 @@ userSchema.pre("save", async function (next) {
 })
 
 // this we also call comparePassword sometimes. used in the login. compared saved passwords with the coming password from the form.
-userSchema.methods.isPasswordCorrect = async function(password){
+userSchema.methods.comparePassword = async function(password){
     return await bcrypt.compare(password, this.password)
 }
 
@@ -74,6 +79,11 @@ userSchema.methods.isPasswordCorrect = async function(password){
 // stored at the client side and is short lived.
 
 userSchema.methods.generateAccessToken = function(){
+    console.log("Access Secret:", config.ACCESS_TOKEN_SECRET);
+    console.log("Access Expiry:", config.ACCESS_TOKEN_EXPIRY);
+
+    
+
     return jwt.sign(
         {
             _id: this._id,
@@ -102,4 +112,5 @@ userSchema.methods.generateRefreshToken = function(){
     )
 }
 
-export const User = mongoose.model("User", userSchema)
+export const User = mongoose.model("User", userSchema);
+export default User;

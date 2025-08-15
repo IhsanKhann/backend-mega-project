@@ -21,15 +21,17 @@ app.use(cors({
   origin: config.CLIENT_URL,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials:true,
-}));
+})); 
 app.use(urlencoded({
   extended: true,
   limit: "16kb",
 }));
 app.use(express.static("public"))
-app.use(cookieParser());
+app.use(cookieParser()); 
 
-// db connection:
+// give me access to the cookies in backend. Cookies probably i made in the auth/userController for login and signin. I would want the access in the middleware for verification of the token in the cookie coming back from frontend for verification upon a login.
+
+// db connection
 connectDB();
 
 // user routes: industry standard.
