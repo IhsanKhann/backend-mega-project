@@ -297,67 +297,50 @@ const getUser = async(req,res) => {
     })
 }
 
-// confirm your password.
-const confirmCurrentPassword = async(req,res) => {
-    try{
-        const {oldPassword,newPassword,ConfirmPassword} = req.body;
-    // we need user, and its password from the database.
-    const user = req.user;
+const confirmCurrentPassword = async (req, res) => {
+    try {
+        const { oldPassword, newPassword, ConfirmPassword } = req.body;
 
-    // if(user.password !== oldPassword){
-    //     return res.status(400).json({
-    //         status: false,
-    //         message: "Invalid old password",
-    //     })
-    // }; this wont work as the password is hashed.
-    
-    const userPresent = await User.findById(user._id);
-    if(!userPresent){
-        res.status(400).json({
-            status: false,
-            message: "User not found",
-        })
-    }
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res.status(400).json({
+                status: false,
+                message: "User not found",
+            });
+        }
 
-    const isPasswordValid = await user.comparePassword(oldPassword);
-    if(!isPasswordValid){
-        return res.status(400).json({
-            status: false,
-            message: "Invalid old password",
-        })
-    }
+        const isPasswordValid = await user.comparePassword(oldPassword);
+        if (!isPasswordValid) {
+            return res.status(400).json({
+                status: false,
+                message: "Invalid old password",
+            });
+        }
 
-    if(newPassword !== ConfirmPassword){
-        return res.status(400).json({
-            status: false,
-            message: "Passwords do not match",
-        })
-    }
+        if (newPassword !== ConfirmPassword) {
+            return res.status(400).json({
+                status: false,
+                message: "Passwords do not match",
+            });
+        }
 
-    const updatedUser = await User.findByIdAndUpdate(
-        user._id,
-        {
-            $set:{
-                password: newPassword,
-            },
-        },
-        {new:true},
-    )
+        // Assign and save (pre-save hook will hash password automatically)
+        user.password = newPassword;
+        await user.save();
 
-    res.status(200).json({
-        status: true,
-        message: "Password updated successfully",
-        updatedUser,
-    })
+        res.status(200).json({
+            status: true,
+            message: "Password updated successfully",
+        });
 
-    }catch(error){
+    } catch (error) {
         res.status(500).json({
             status: false,
             message: "Internal server error",
             error: error.message,
-        })
+        });
     }
-}
+};
 
 // updateDetails:
 const updateDetails = async (req, res) => {
